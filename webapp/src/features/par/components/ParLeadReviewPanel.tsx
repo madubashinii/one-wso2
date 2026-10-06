@@ -58,6 +58,7 @@ import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
+import { isLeadershipEmployee, LEADERSHIP_ALLOWED_RATINGS } from "../util/parLeadership";
 import ParRichTextField from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
 import ParDriveFileChip from "./ParDriveFileChip";
@@ -270,6 +271,7 @@ export default function ParLeadReviewPanel({
   }
 
   const employeeComment = decodeParComment(parRatingData.parEmployeeComment);
+  const isLeadership = isLeadershipEmployee(parRatingData.parSubTeam);
 
   const dirty =
     leadComment.trim() !== savedLeadComment.trim() ||
@@ -418,11 +420,15 @@ export default function ParLeadReviewPanel({
                       disabled={ratingUpdate.isPending}
                       aria-labelledby="lead-review-rating-label"
                     >
-                      {(cycle.parCycleConfigurations?.parRatings ?? []).map((r) => (
-                        <ComplexSelect.MenuItem key={r} value={r}>
-                          {r}
-                        </ComplexSelect.MenuItem>
-                      ))}
+                      {(cycle.parCycleConfigurations?.parRatings ?? [])
+                        .filter(
+                          (r) => !isLeadership || LEADERSHIP_ALLOWED_RATINGS.includes(r) || r === parRatingValue,
+                        )
+                        .map((r) => (
+                          <ComplexSelect.MenuItem key={r} value={r}>
+                            {r}
+                          </ComplexSelect.MenuItem>
+                        ))}
                     </ComplexSelect>
                   )}
                 </Box>
