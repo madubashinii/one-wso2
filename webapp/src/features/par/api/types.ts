@@ -139,6 +139,12 @@ export interface ParRating {
   // Google Drive file URLs, not an array on the wire. See
   // util/parDriveFile.ts's parseSavedUrls.
   parPerformanceNoticeAck?: string;
+  // Computed once at cycle-creation time (manager.bal's
+  // checkSpecialRatingEligibility) — false for leadership-group employees,
+  // employees under the tenure threshold, etc. manager.bal's updateParRating
+  // now rejects a TOP5P/TOP20P parSpecialRating when this is false, so
+  // ParLeadReviewPanel.tsx disables those controls accordingly.
+  parSpecialRatingEligibility: boolean;
 }
 
 // ---- 360° feedback ----------------------------------------------------------

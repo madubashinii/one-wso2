@@ -439,7 +439,9 @@ export default function ParLeadReviewPanel({
                         fullWidth
                         value={specialRating}
                         onChange={(e) => setSpecialRating(e.target.value as typeof specialRating)}
-                        disabled={!specialRatingConfirmed || ratingUpdate.isPending}
+                        disabled={
+                          !specialRatingConfirmed || ratingUpdate.isPending || !parRatingData.parSpecialRatingEligibility
+                        }
                         aria-labelledby="lead-review-special-rating-label"
                       >
                         <ComplexSelect.MenuItem value="NONE">N/A</ComplexSelect.MenuItem>
@@ -456,7 +458,7 @@ export default function ParLeadReviewPanel({
                       <Checkbox
                         checked={specialRatingConfirmed}
                         onChange={(e) => setSpecialRatingConfirmed(e.target.checked)}
-                        disabled={ratingUpdate.isPending}
+                        disabled={ratingUpdate.isPending || !parRatingData.parSpecialRatingEligibility}
                       />
                     }
                     label="The Top 5% / 20% rating decision was discussed and finalized with the functional lead"
