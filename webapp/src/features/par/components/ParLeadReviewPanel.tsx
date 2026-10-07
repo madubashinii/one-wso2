@@ -406,7 +406,14 @@ export default function ParLeadReviewPanel({
                   </Typography>
                   {readOnly ? (
                     parRatingData.parRating ? (
-                      <Chip size="small" label={parRatingData.parRating} />
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Chip size="small" label={parRatingData.parRating} />
+                        {parRatingData.parRatingUpdatedBy === "SYSTEM" && (
+                          <Tooltip title="Automatically assigned by the system because the PAR deadline was missed">
+                            <Chip size="small" color="warning" variant="outlined" label="Auto-assigned (deadline missed)" />
+                          </Tooltip>
+                        )}
+                      </Box>
                     ) : (
                       <Typography variant="body2" color="text.secondary">
                         N/A
