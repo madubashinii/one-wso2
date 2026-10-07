@@ -150,11 +150,10 @@ export interface ParRating {
   // now rejects a TOP5P/TOP20P parSpecialRating when this is false, so
   // ParLeadReviewPanel.tsx disables those controls accordingly.
   parSpecialRatingEligibility: boolean;
-  // Whether the employee holds an active leadership attribute (people-app's
-  // employee_leadership/leadership_group tables, surfaced through entity/).
-  // Computed once at cycle-creation time, same as parSpecialRatingEligibility
-  // above. manager.bal's updateParRating restricts this employee's parRating
-  // to "Successful"/"Step Up" when true.
+  // Whether the employee holds an active leadership attribute, as determined
+  // by the backend. Computed once at cycle-creation time, same as
+  // parSpecialRatingEligibility above. When true, the employee's parRating is
+  // restricted to "Successful"/"Step Up".
   parIsLeadershipEmployee: boolean;
 }
 
