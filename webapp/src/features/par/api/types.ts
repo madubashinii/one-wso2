@@ -140,11 +140,17 @@ export interface ParRating {
   // util/parDriveFile.ts's parseSavedUrls.
   parPerformanceNoticeAck?: string;
   // Computed once at cycle-creation time (manager.bal's
-  // checkSpecialRatingEligibility) — false for leadership-group employees,
+  // checkSpecialRatingEligibility) — false for leadership employees,
   // employees under the tenure threshold, etc. manager.bal's updateParRating
   // now rejects a TOP5P/TOP20P parSpecialRating when this is false, so
   // ParLeadReviewPanel.tsx disables those controls accordingly.
   parSpecialRatingEligibility: boolean;
+  // Whether the employee holds an active leadership attribute (people-app's
+  // employee_leadership/leadership_group tables, surfaced through entity/).
+  // Computed once at cycle-creation time, same as parSpecialRatingEligibility
+  // above. manager.bal's updateParRating restricts this employee's parRating
+  // to "Successful"/"Step Up" when true.
+  parIsLeadershipEmployee: boolean;
 }
 
 // ---- 360° feedback ----------------------------------------------------------

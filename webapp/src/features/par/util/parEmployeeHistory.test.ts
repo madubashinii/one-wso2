@@ -34,6 +34,7 @@ function rating(overrides: Partial<ParRating>): ParRating {
     parLeadStatus: "SHARED",
     parF2fStatus: "COMPLETED",
     parSpecialRatingEligibility: true,
+    parIsLeadershipEmployee: false,
     ...overrides,
   };
 }

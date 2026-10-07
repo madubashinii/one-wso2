@@ -14,20 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** par-app's own fixed constant (modules/types/constants.bal's
- * LEADERSHIP_GROUP) for the subTeam value that marks an employee as part of
- * the leadership group. Not admin-configurable like top5p20pEnabledRating,
- * so it lives here rather than in apiConfig.ts. */
-const LEADERSHIP_GROUP = "LEADERSHIP GROUP";
-
-/** Mirrors par-app's own `parSubTeam === LEADERSHIP_GROUP` check
- * (manager.bal's updateParRating) that gates both the Top 5%/20% special
- * rating and the PAR rating options below. */
-export function isLeadershipEmployee(parSubTeam: string | undefined): boolean {
-  return parSubTeam === LEADERSHIP_GROUP;
-}
-
 /** par-app's own restriction (manager.bal's updateParRating): a leadership
  * employee's PAR rating may only be "Successful" or "Step Up" — never NI or
- * anything else in the cycle's configured parRatings list. */
+ * anything else in the cycle's configured parRatings list.
+ *
+ * "Leadership" itself is now computed entirely server-side (people-app's
+ * employee_leadership/leadership_group tables, surfaced through entity/ and
+ * stored once per cycle as ParRating.parIsLeadershipEmployee) -- read that
+ * field directly rather than re-deriving it from org-chart fields like
+ * subTeam, which was only ever an approximation. */
 export const LEADERSHIP_ALLOWED_RATINGS = ["Successful", "Step Up"];

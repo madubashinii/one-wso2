@@ -58,7 +58,7 @@ import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
-import { isLeadershipEmployee, LEADERSHIP_ALLOWED_RATINGS } from "../util/parLeadership";
+import { LEADERSHIP_ALLOWED_RATINGS } from "../util/parLeadership";
 import ParRichTextField from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
 import ParDriveFileChip from "./ParDriveFileChip";
@@ -271,7 +271,7 @@ export default function ParLeadReviewPanel({
   }
 
   const employeeComment = decodeParComment(parRatingData.parEmployeeComment);
-  const isLeadership = isLeadershipEmployee(parRatingData.parSubTeam);
+  const isLeadership = parRatingData.parIsLeadershipEmployee;
 
   const dirty =
     leadComment.trim() !== savedLeadComment.trim() ||
