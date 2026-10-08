@@ -14,8 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** A leadership employee's PAR rating may only be "Successful" or "Step Up" —
- * never NI or anything else in the cycle's configured parRatings list.
+/** Default ratings a leadership employee may be given — "Successful" or
+ * "Step Up", never NI or anything else in the cycle's configured parRatings
+ * list. Used as the fallback when a cycle hasn't configured its own
+ * leadershipAllowedRatings (see ParCycleConfigurations in api/types.ts);
+ * ParLeadReviewPanel.tsx prefers the cycle-scoped value when present.
  *
  * Leadership status is computed server-side and stored once per cycle as
  * ParRating.parIsLeadershipEmployee — read that field directly rather than

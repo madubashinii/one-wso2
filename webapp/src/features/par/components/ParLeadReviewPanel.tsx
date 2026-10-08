@@ -98,6 +98,7 @@ export default function ParLeadReviewPanel({
   // falling back to the deploy-wide window.config value.
   const top5p20pEnabledRating = cycle.parCycleConfigurations?.top5p20pEnabledRating ?? defaultTop5p20pEnabledRating;
   const evidenceEnabledRating = cycle.parCycleConfigurations?.evidenceEnabledRating ?? defaultEvidenceEnabledRating;
+  const leadershipAllowedRatings = cycle.parCycleConfigurations?.leadershipAllowedRatings ?? LEADERSHIP_ALLOWED_RATINGS;
 
   const [leadComment, setLeadComment] = useState("");
   const [adminComment, setAdminComment] = useState("");
@@ -429,7 +430,7 @@ export default function ParLeadReviewPanel({
                     >
                       {(cycle.parCycleConfigurations?.parRatings ?? [])
                         .filter(
-                          (r) => !isLeadership || LEADERSHIP_ALLOWED_RATINGS.includes(r) || r === parRatingValue,
+                          (r) => !isLeadership || leadershipAllowedRatings.includes(r) || r === parRatingValue,
                         )
                         .map((r) => (
                           <ComplexSelect.MenuItem key={r} value={r}>

@@ -65,6 +65,13 @@ export interface ParCycleConfigurations {
   // an unrecognized field.
   top5p20pEnabledRating?: string;
   evidenceEnabledRating?: string;
+  // Which entry in parRatings is auto-assigned to an employee/lead who
+  // misses their PAR deadline, set per cycle.
+  missedDeadlineRating?: string;
+  // Which entries in parRatings a leadership employee may be given, set per
+  // cycle. Falls back to LEADERSHIP_ALLOWED_RATINGS (util/parLeadership.ts)
+  // when the cycle hasn't configured it.
+  leadershipAllowedRatings?: string[];
 }
 
 export interface ParCycle {
