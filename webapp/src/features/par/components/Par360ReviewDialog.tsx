@@ -193,7 +193,7 @@ export default function Par360ReviewDialog({
             {reviewStatus === "SHARED" && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                 <Typography sx={{ fontWeight: 600, minWidth: 80 }}>Rating:</Typography>
-                <Chip size="small" variant="outlined" color="primary" label={rating} />
+                <Chip size="small" variant="outlined" color="primary" label={existing.data?.reviewRating ?? ""} />
               </Box>
             )}
             <Box>
@@ -201,7 +201,7 @@ export default function Par360ReviewDialog({
                 {reviewStatus === "REJECTED" ? "Reason:" : "Feedback:"}
               </Typography>
               <Box sx={{ p: 2, borderRadius: 1.5, bgcolor: "action.hover" }}>
-                <ParCommentView html={comment} />
+                <ParCommentView html={savedComment} />
               </Box>
             </Box>
           </Stack>
