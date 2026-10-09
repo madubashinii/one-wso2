@@ -123,9 +123,10 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // Both perspectives: the claim apps' own screens are under Me, and Claim
   // approval is under Finance. One gate answers for both, so it has to be
   // asked in either place.
-  // `caps` for the master-data items, which have no finance backend role of
-  // their own — see useFinanceGate's own note.
-  const financeGate = useFinanceGate(active.key === "me" || active.key === "finance", caps);
+  // No `caps` any more: master data was the one finance item the portal's own
+  // privileges decided, and its backend now answers for itself — see
+  // useFinanceGate's note.
+  const financeGate = useFinanceGate(active.key === "me" || active.key === "finance");
 
   // Finance MIS, also under Finance, but a different backend again — the MIS
   // ARR service's own /user-info. It cannot share the finance gate above: that
@@ -236,12 +237,11 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // UMT is the same shape of problem again: Product Management is
   // UMT_ADMIN-only, decided by UMT's own /update/user-info roles, which bear
   // no relation to the people-app privilege numbers `caps` is built from.
-  // Only fetched while UMT is the active perspective.
-  const isUmt = active.key === "umt";
-  const umtGate = useUmtGate(isUmt);
-  const engineeringAdminGate = useEngineeringAdminGate(
-    active.key === "engineering" && isPreviewEnabled("engineering"),
-  );
+  // Only fetched while Engineering is active. UMT's rows exist only while
+  // its preview flag is on.
+  const isEngineering = active.key === "engineering";
+  const umtGate = useUmtGate(isEngineering && isPreviewEnabled("umt"));
+  const engineeringAdminGate = useEngineeringAdminGate(isEngineering);
 
   // Both services are a Colombo-office perk, so both screens are Sri-Lanka-only
   // — see isSriLankaWorkLocation. They now sit in different perspectives (self
