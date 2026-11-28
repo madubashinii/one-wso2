@@ -18,13 +18,18 @@ import { useState } from "react";
 import {
   Alert,
   Autocomplete,
+  Avatar,
+  Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  InputAdornment,
+  Paper,
   Skeleton,
   Stack,
   Switch,
@@ -35,8 +40,12 @@ import {
   TableHead,
   TableRow,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
+import { SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import {
@@ -59,7 +68,44 @@ const withSaved = (list: Choice[], codes: string[]): Choice[] => [
 
 const labelOf = (list: Choice[], code: string): string => list.find((c) => c.value === code)?.label ?? code;
 
-function ScopePicker({
+const initials = (name: string): string =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+
+const joinWithOr = (labels: string[]): string => (labels.length < 2 ? labels.join("") : `${labels.slice(0, -1).join(", ")} or ${labels[labels.length - 1]}`);
+
+const SHOWN_CHIPS = 2;
+
+/** The first few labels as chips, and the rest as a "+N" chip that names them on hover. */
+function ScopeChips({ labels }: { labels: string[] }) {
+  if (labels.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        None
+      </Typography>
+    );
+  }
+  const rest = labels.slice(SHOWN_CHIPS);
+  return (
+    <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+      {labels.slice(0, SHOWN_CHIPS).map((label) => (
+        <Chip key={label} size="small" label={label} />
+      ))}
+      {rest.length > 0 && (
+        <Tooltip title={rest.join(", ")}>
+          <Chip size="small" variant="outlined" label={`+${rest.length}`} aria-label={`${rest.length} more: ${rest.join(", ")}`} />
+        </Tooltip>
+      )}
+    </Stack>
+  );
+}
+
+/** A box of checkboxes for one list, with a count and a Select all that becomes Clear once everything is chosen. */
+function ScopeChecklist({
   label,
   list,
   codes,
@@ -73,19 +119,39 @@ function ScopePicker({
   onChange: (codes: string[]) => void;
 }) {
   const options = withSaved(list, codes);
+  const all = options.length > 0 && codes.length === options.length;
   return (
-    <Autocomplete
-      multiple
-      size="small"
-      disableCloseOnSelect
-      options={options}
-      value={options.filter((o) => codes.includes(o.value))}
-      disabled={disabled}
-      getOptionLabel={(o) => o.label}
-      isOptionEqualToValue={(a, b) => a.value === b.value}
-      onChange={(_, next) => onChange(next.map((o) => o.value))}
-      renderInput={(params) => <TextField {...params} label={label} />}
-    />
+    <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+        <Typography variant="subtitle2" component="span">
+          {label}{" "}
+          <Typography variant="caption" color="text.secondary" component="span">
+            · {codes.length} of {options.length}
+          </Typography>
+        </Typography>
+        <Button size="small" disabled={disabled || options.length === 0} onClick={() => onChange(all ? [] : options.map((o) => o.value))}>
+          {all ? "Clear" : "Select all"}
+        </Button>
+      </Stack>
+      <Box role="group" aria-label={label} sx={{ border: 1, borderColor: "divider", borderRadius: 1, height: 196, overflowY: "auto", px: 1.5, mt: 0.5 }}>
+        <Stack>
+          {options.map((o) => (
+            <FormControlLabel
+              key={o.value}
+              label={o.label}
+              disabled={disabled}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={codes.includes(o.value)}
+                  onChange={(_, checked) => onChange(checked ? [...codes, o.value] : codes.filter((code) => code !== o.value))}
+                />
+              }
+            />
+          ))}
+        </Stack>
+      </Box>
+    </Box>
   );
 }
 
@@ -105,7 +171,12 @@ function ApproverForm({ approver, lookups, onClose }: { approver: BudgetApprover
   const options = [...(search.data ?? []), ...(chosen ? [chosen] : [])].filter(
     (person, index, all) => all.findIndex((other) => other.email.toLowerCase() === person.email.toLowerCase()) === index,
   );
+  const person: { name: string; email: string } | null = approver ?? chosen;
   const hasScope = scopes.businessUnits.length + scopes.regions.length > 0;
+  const covered = [
+    ...scopes.businessUnits.map((code) => labelOf(lookups.businessUnits, code)),
+    ...scopes.regions.map((code) => labelOf(lookups.regions, code)),
+  ];
   const done = (message: string) => ({
     onSuccess: () => {
       showSuccess(message);
@@ -118,11 +189,28 @@ function ApproverForm({ approver, lookups, onClose }: { approver: BudgetApprover
   };
 
   return (
-    <Dialog open fullWidth maxWidth="sm" onClose={() => !saving && onClose()}>
+    <Dialog open fullWidth maxWidth="md" onClose={() => !saving && onClose()}>
       <DialogTitle>{approver ? `Change ${approver.name}` : "Add a budget approver"}</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          {!approver && (
+        <Stack spacing={2.5} sx={{ pt: 1 }}>
+          {person ? (
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ border: 1, borderColor: "divider", borderRadius: 1, px: 1.5, py: 1 }}>
+              <Avatar sx={{ width: 36, height: 36, fontSize: 13 }}>{initials(person.name)}</Avatar>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" fontWeight={500}>
+                  {person.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {person.email}
+                </Typography>
+              </Box>
+              {!approver && (
+                <Button size="small" disabled={saving} onClick={() => setChosen(null)}>
+                  Change
+                </Button>
+              )}
+            </Stack>
+          ) : (
             <Autocomplete
               size="small"
               open={open && query.trim().length >= MIN_DIRECTORY_QUERY}
@@ -142,17 +230,21 @@ function ApproverForm({ approver, lookups, onClose }: { approver: BudgetApprover
             />
           )}
           {search.isError && <Alert severity="error">{describeError(search.error)}</Alert>}
-          <ScopePicker
-            label="Business units"
-            list={lookups.businessUnits}
-            codes={scopes.businessUnits}
-            disabled={saving}
-            onChange={(businessUnits) => setScopes((s) => ({ ...s, businessUnits }))}
-          />
-          <ScopePicker label="Regions" list={lookups.regions} codes={scopes.regions} disabled={saving} onChange={(regions) => setScopes((s) => ({ ...s, regions }))} />
-          <Typography variant="caption" color="text.secondary">
-            A requester is offered this person when their business unit or region is one of these. Choose at least one.
-          </Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2.5}>
+            <ScopeChecklist
+              label="Business units"
+              list={lookups.businessUnits}
+              codes={scopes.businessUnits}
+              disabled={saving}
+              onChange={(businessUnits) => setScopes((s) => ({ ...s, businessUnits }))}
+            />
+            <ScopeChecklist label="Regions" list={lookups.regions} codes={scopes.regions} disabled={saving} onChange={(regions) => setScopes((s) => ({ ...s, regions }))} />
+          </Stack>
+          <Alert severity="info" icon={false} sx={{ bgcolor: "action.hover" }}>
+            {hasScope
+              ? `Requesters in ${joinWithOr(covered)} will be offered ${person?.name ?? "this person"} as a budget approver.`
+              : "Choose at least one business unit or region, so there is someone for requesters to be offered this approver."}
+          </Alert>
           {approver && (
             <FormControlLabel
               control={<Switch checked={isActive} disabled={saving} onChange={(_, checked) => setIsActive(checked)} />}
@@ -174,11 +266,17 @@ function ApproverForm({ approver, lookups, onClose }: { approver: BudgetApprover
   );
 }
 
+type Show = "all" | "offered" | "off";
+
 /** Who can be chosen as a budget approver on a request, and for which business units and regions. */
 export default function BudgetApproversSettings() {
   const approvers = useBudgetApproverSettings();
   const lookups = useProcurementLookups();
+  const toggle = useChangeBudgetApprover();
+  const { showSuccess } = useNotifications();
   const [editing, setEditing] = useState<BudgetApproverSetting | "new" | null>(null);
+  const [search, setSearch] = useState("");
+  const [show, setShow] = useState<Show>("all");
 
   if (approvers.isError) {
     return (
@@ -197,6 +295,17 @@ export default function BudgetApproversSettings() {
   if (!approvers.data) return <Skeleton variant="rounded" height={240} />;
 
   const names = lookups.data ?? { budgetCategories: [], businessUnits: [], products: [], regions: [] };
+  const offeredCount = approvers.data.filter((a) => a.isActive).length;
+  const term = search.trim().toLowerCase();
+  const rows = approvers.data.filter(
+    (a) => (show === "all" || a.isActive === (show === "offered")) && (term === "" || a.name.toLowerCase().includes(term) || a.email.toLowerCase().includes(term)),
+  );
+  const switchOffered = (approver: BudgetApproverSetting, isActive: boolean) =>
+    toggle.mutate(
+      { id: approver.id, change: { isActive, businessUnits: approver.businessUnits, regions: approver.regions } },
+      { onSuccess: () => showSuccess(`${approver.name} is ${isActive ? "now" : "no longer"} offered to requesters.`) },
+    );
+
   return (
     <>
       {lookups.isError && (
@@ -212,48 +321,87 @@ export default function BudgetApproversSettings() {
           The business units and regions could not be loaded, so they show as codes. {describeError(lookups.error)}
         </Alert>
       )}
-      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+      {toggle.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {describeError(toggle.error)}
+        </Alert>
+      )}
+      <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ mb: 2 }}>
+        <TextField
+          size="small"
+          placeholder="Search by name or email"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ width: 300 }}
+          slotProps={{
+            htmlInput: { "aria-label": "Search approvers" },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon size={16} />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+        <ToggleButtonGroup size="small" exclusive value={show} onChange={(_, next: Show | null) => next && setShow(next)} aria-label="Show">
+          <ToggleButton value="all">All {approvers.data.length}</ToggleButton>
+          <ToggleButton value="offered">Offered {offeredCount}</ToggleButton>
+          <ToggleButton value="off">Not offered {approvers.data.length - offeredCount}</ToggleButton>
+        </ToggleButtonGroup>
+        <Box sx={{ flex: 1 }} />
         <Button variant="contained" disabled={!lookups.data} onClick={() => setEditing("new")}>
           Add budget approver
         </Button>
       </Stack>
       {approvers.data.length === 0 ? (
         <Alert severity="info">There are no budget approvers yet.</Alert>
+      ) : rows.length === 0 ? (
+        <Alert severity="info">No budget approver matches.</Alert>
       ) : (
-        <TableContainer>
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
           <Table size="small" aria-label="Budget approvers">
             <TableHead>
               <TableRow>
                 <TableCell>Approver</TableCell>
-                <TableCell>Covers</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Business units</TableCell>
+                <TableCell>Regions</TableCell>
+                <TableCell>Offered</TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
             <TableBody>
-              {approvers.data.map((approver) => (
-                <TableRow key={approver.id}>
+              {rows.map((approver) => (
+                <TableRow key={approver.id} sx={approver.isActive ? undefined : { opacity: 0.65 }}>
                   <TableCell>
-                    {approver.name}
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                      {approver.email}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
-                      {approver.businessUnits.map((code) => (
-                        <Chip key={`bu-${code}`} size="small" variant="outlined" label={labelOf(names.businessUnits, code)} />
-                      ))}
-                      {approver.regions.map((code) => (
-                        <Chip key={`reg-${code}`} size="small" variant="outlined" label={labelOf(names.regions, code)} />
-                      ))}
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Avatar sx={{ width: 36, height: 36, fontSize: 13 }}>{initials(approver.name)}</Avatar>
+                      <Box>
+                        <Typography variant="body2" fontWeight={500}>
+                          {approver.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {approver.email}
+                        </Typography>
+                      </Box>
                     </Stack>
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" color={approver.isActive ? "success" : "default"} label={approver.isActive ? "Offered" : "Not offered"} />
+                    <ScopeChips labels={approver.businessUnits.map((code) => labelOf(names.businessUnits, code))} />
+                  </TableCell>
+                  <TableCell>
+                    <ScopeChips labels={approver.regions.map((code) => labelOf(names.regions, code))} />
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={approver.isActive}
+                      disabled={toggle.isPending}
+                      slotProps={{ input: { role: "switch", "aria-label": `Offered to requesters, ${approver.name}` } }}
+                      onChange={(_, checked) => switchOffered(approver, checked)}
+                    />
                   </TableCell>
                   <TableCell align="right">
-                    <Button size="small" aria-label={`Change ${approver.name}`} onClick={() => setEditing(approver)}>
+                    <Button size="small" variant="outlined" aria-label={`Change ${approver.name}`} onClick={() => setEditing(approver)}>
                       Change
                     </Button>
                   </TableCell>
