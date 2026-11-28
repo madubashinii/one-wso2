@@ -14,24 +14,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
-import FilterChips from "../../components/FilterChips";
-import BudgetApproversSettings from "../components/BudgetApproversSettings";
-import ReferenceOptionsSettings from "../components/ReferenceOptionsSettings";
+import { Link as RouterLink, Outlet, useLocation } from "react-router";
+import { Tab, Tabs } from "@wso2/oxygen-ui";
+import { workspacePaths } from "../workspacePaths";
 
-type Section = "approvers" | "options";
-const SECTIONS: { value: Section; label: string }[] = [
-  { value: "approvers", label: "Budget approvers" },
-  { value: "options", label: "Form options" },
-];
+const SECTIONS = [
+  { path: workspacePaths.settingsBudgetApprovers, label: "Budget approvers" },
+  { path: workspacePaths.settingsOptions, label: "Form options" },
+] as const;
 
-/** What a Procurement admin keeps for the request form: who the budget approvers are, and the options of its lists. */
+/** What a Procurement admin keeps for the request form: who the budget approvers are, and the options of its lists. Each section is its own route. */
 export default function SettingsPage() {
-  const [section, setSection] = useState<Section>("approvers");
+  const { pathname } = useLocation();
+  const current = SECTIONS.find((s) => pathname.startsWith(s.path))?.path ?? false;
   return (
     <>
-      <FilterChips label="Settings" options={SECTIONS} value={section} onChange={setSection} />
-      {section === "approvers" ? <BudgetApproversSettings /> : <ReferenceOptionsSettings />}
+      <Tabs value={current} aria-label="Settings" sx={{ mb: 2.5, borderBottom: 1, borderColor: "divider" }}>
+        {SECTIONS.map((s) => (
+          <Tab key={s.path} value={s.path} label={s.label} component={RouterLink} to={s.path} />
+        ))}
+      </Tabs>
+      <Outlet />
     </>
   );
 }

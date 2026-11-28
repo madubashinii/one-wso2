@@ -22,6 +22,8 @@ import PerspectiveLanding from "@components/perspective-landing/PerspectiveLandi
 import TeamOnlyRoute from "./components/TeamOnlyRoute";
 import ApprovalReviewPage from "./pages/ApprovalReviewPage";
 import ApprovalsPage from "./pages/ApprovalsPage";
+import BudgetApproversSettings from "./components/BudgetApproversSettings";
+import ReferenceOptionsSettings from "./components/ReferenceOptionsSettings";
 import SettingsPage from "./pages/SettingsPage";
 import TeamQueuePage from "./pages/TeamQueuePage";
 import TeamRequestPage from "./pages/TeamRequestPage";
@@ -42,7 +44,11 @@ export const procurementWorkspaceRoutes = (
       <Route path="requests/:requestId" element={<TeamRequestPage />} />
     </Route>
     <Route element={<TeamOnlyRoute adminOnly />}>
-      <Route path="settings" element={<SettingsPage />} />
+      <Route path="settings" element={<SettingsPage />}>
+        <Route index element={<Navigate to="budget-approvers" replace />} />
+        <Route path="budget-approvers" element={<BudgetApproversSettings />} />
+        <Route path="options" element={<ReferenceOptionsSettings />} />
+      </Route>
     </Route>
     <Route path="*" element={<Navigate to={WORKSPACE_PATH} replace />} />
   </Route>
