@@ -17,6 +17,7 @@
 import { useState } from "react";
 import {
   Alert,
+  Box,
   Button,
   Chip,
   Dialog,
@@ -24,6 +25,11 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  InputAdornment,
+  List,
+  ListItemButton,
+  ListItemText,
+  Paper,
   Skeleton,
   Stack,
   Switch,
@@ -34,11 +40,12 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Typography,
 } from "@wso2/oxygen-ui";
+import { SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useAddReferenceOption, useChangeReferenceOption, useReferenceSettings } from "../../api/useProcurement";
-import FilterChips from "../../components/FilterChips";
 import type { ReferenceKind, ReferenceSetting } from "../../types";
 
 const LISTS: { value: ReferenceKind; label: string }[] = [
@@ -124,7 +131,10 @@ function OptionForm({ kind, option, onClose }: { kind: ReferenceKind; option: Re
 /** The options of the request form's lists, which can be added to and taken off the form without losing the requests that use them. */
 export default function ReferenceOptionsSettings() {
   const settings = useReferenceSettings();
+  const toggle = useChangeReferenceOption();
+  const { showSuccess } = useNotifications();
   const [kind, setKind] = useState<ReferenceKind>("BUDGET_CATEGORY");
+  const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<ReferenceSetting | "new" | null>(null);
 
   if (settings.isError) {
@@ -143,47 +153,113 @@ export default function ReferenceOptionsSettings() {
   }
   if (!settings.data) return <Skeleton variant="rounded" height={240} />;
 
-  const rows = settings.data.filter((o) => o.kind === kind);
+  const listLabel = LISTS.find((l) => l.value === kind)?.label ?? "";
+  const inList = settings.data.filter((o) => o.kind === kind);
+  const term = search.trim().toLowerCase();
+  const rows = inList.filter((o) => term === "" || o.label.toLowerCase().includes(term) || o.code.toLowerCase().includes(term));
+  const switchOffered = (option: ReferenceSetting, isActive: boolean) =>
+    toggle.mutate(
+      { id: option.id, change: { label: option.label, isActive } },
+      { onSuccess: () => showSuccess(`${option.label} is ${isActive ? "now" : "no longer"} offered on the form.`) },
+    );
+
   return (
     <>
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-        <FilterChips label="List" options={LISTS} value={kind} onChange={setKind} />
-        <Button variant="contained" sx={{ flexShrink: 0 }} onClick={() => setEditing("new")}>
-          Add option
-        </Button>
-      </Stack>
-      {rows.length === 0 ? (
-        <Alert severity="info">This list has no options yet.</Alert>
-      ) : (
-        <TableContainer>
-          <Table size="small" aria-label="Options">
-            <TableHead>
-              <TableRow>
-                <TableCell>Label</TableCell>
-                <TableCell>Code</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((option) => (
-                <TableRow key={option.id}>
-                  <TableCell>{option.label}</TableCell>
-                  <TableCell>{option.code}</TableCell>
-                  <TableCell>
-                    <Chip size="small" color={option.isActive ? "success" : "default"} label={option.isActive ? "Offered" : "Not offered"} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button size="small" aria-label={`Change ${option.label}`} onClick={() => setEditing(option)}>
-                      Change
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {toggle.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {describeError(toggle.error)}
+        </Alert>
       )}
+      <Stack direction={{ xs: "column", md: "row" }} spacing={3} alignItems="flex-start">
+        <Paper variant="outlined" sx={{ width: { xs: "100%", md: 240 }, flexShrink: 0, borderRadius: 2, p: 1 }}>
+          <List component="nav" aria-label="Lists" disablePadding>
+            {LISTS.map((list) => (
+              <ListItemButton
+                key={list.value}
+                selected={list.value === kind}
+                sx={{ borderRadius: 1 }}
+                onClick={() => {
+                  setKind(list.value);
+                  setSearch("");
+                }}
+              >
+                <ListItemText primary={list.label} slotProps={{ primary: { variant: "body2", fontWeight: list.value === kind ? 600 : 400 } }} />
+                <Chip size="small" label={settings.data.filter((o) => o.kind === list.value).length} />
+              </ListItemButton>
+            ))}
+          </List>
+        </Paper>
+        <Box sx={{ flex: 1, minWidth: 0, width: "100%" }}>
+          <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ mb: 2 }}>
+            <TextField
+              size="small"
+              placeholder={`Search ${listLabel.toLowerCase()}`}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              sx={{ width: 300 }}
+              slotProps={{
+                htmlInput: { "aria-label": "Search options" },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon size={16} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <Box sx={{ flex: 1 }} />
+            <Button variant="contained" onClick={() => setEditing("new")}>
+              Add option
+            </Button>
+          </Stack>
+          {inList.length === 0 ? (
+            <Alert severity="info">This list has no options yet.</Alert>
+          ) : rows.length === 0 ? (
+            <Alert severity="info">No option matches.</Alert>
+          ) : (
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+              <Table size="small" aria-label="Options">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Label</TableCell>
+                    <TableCell>Code</TableCell>
+                    <TableCell>Offered</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rows.map((option) => (
+                    <TableRow key={option.id} sx={option.isActive ? undefined : { opacity: 0.65 }}>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={500}>
+                          {option.label}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip size="small" variant="outlined" label={option.code} sx={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }} />
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={option.isActive}
+                          disabled={toggle.isPending}
+                          slotProps={{ input: { role: "switch", "aria-label": `Offered on the form, ${option.label}` } }}
+                          onChange={(_, checked) => switchOffered(option, checked)}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" variant="outlined" aria-label={`Change ${option.label}`} onClick={() => setEditing(option)}>
+                          Change
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+      </Stack>
       {editing && <OptionForm kind={kind} option={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
     </>
   );
