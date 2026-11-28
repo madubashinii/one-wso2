@@ -29,6 +29,23 @@ function todayDateOnly(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// The statuses an Update Status panel starts from, as saved.
+interface SavedStatuses {
+  parRatingId: number;
+  employeeStatus: ParEmployeeStatus;
+  leadStatus: ParLeadStatus;
+  f2fStatus: ParF2fStatus;
+  f2fDate: string;
+}
+
+const sameStatuses = (a: SavedStatuses, b: SavedStatuses | undefined) =>
+  b !== undefined &&
+  a.parRatingId === b.parRatingId &&
+  a.employeeStatus === b.employeeStatus &&
+  a.leadStatus === b.leadStatus &&
+  a.f2fStatus === b.f2fStatus &&
+  a.f2fDate === b.f2fDate;
+
 // Admin-only direct override of the four status/date fields a normal
 // review flow only ever moves one at a time. Distinct from
 // ParLeadReviewPanel.tsx: that one edits rating/comment content, this one
@@ -45,18 +62,34 @@ export default function ParUpdateStatusPanel({ cycle, employeeEmail }: { cycle: 
   // doesn't touch this field would overwrite a SCHEDULED record with PENDING.
   const [f2fStatus, setF2fStatus] = useState<ParF2fStatus>("PENDING");
   const [f2fDate, setF2fDate] = useState("");
-  const [seededForId, setSeededForId] = useState<number | undefined>(undefined);
+  const [seededFrom, setSeededFrom] = useState<SavedStatuses | undefined>(undefined);
+  // Set once the PAR admin's own save has succeeded (and the record has been read again), so what it stored replaces
+  // every field. Not before: a refresh that arrives while the save is on its way keeps the edits, in case it fails.
+  const [reseedAll, setReseedAll] = useState(false);
 
   const parRatingData = rating.data;
 
-  // Seed once per record so a background refetch doesn't overwrite an
-  // in-progress edit.
-  if (parRatingData && parRatingData.parRatingId !== seededForId) {
-    setSeededForId(parRatingData.parRatingId);
-    setEmployeeStatus(parRatingData.parEmployeeStatus);
-    setLeadStatus(parRatingData.parLeadStatus);
-    setF2fStatus(parRatingData.parF2fStatus);
-    setF2fDate(parRatingData.parF2fDate ?? "");
+  // Seeded from what's saved, and again whenever that changes, so the fields start from the stored statuses. After
+  // the admin's own save, or for another PAR, every field takes what's stored. When something else changes it (the
+  // employee shares, another tab saves), a field the admin is changing keeps their edit, and the others follow.
+  const saved: SavedStatuses | undefined = parRatingData
+    ? {
+        parRatingId: parRatingData.parRatingId,
+        employeeStatus: parRatingData.parEmployeeStatus,
+        leadStatus: parRatingData.parLeadStatus,
+        f2fStatus: parRatingData.parF2fStatus,
+        f2fDate: parRatingData.parF2fDate ?? "",
+      }
+    : undefined;
+  if (saved && (reseedAll || !sameStatuses(saved, seededFrom))) {
+    const before = !reseedAll && seededFrom?.parRatingId === saved.parRatingId ? seededFrom : undefined;
+    const follow = <T,>(local: T, was: T | undefined, now: T) => (before && local !== was ? local : now);
+    setEmployeeStatus(follow(employeeStatus, before?.employeeStatus, saved.employeeStatus));
+    setLeadStatus(follow(leadStatus, before?.leadStatus, saved.leadStatus));
+    setF2fStatus(follow(f2fStatus, before?.f2fStatus, saved.f2fStatus));
+    setF2fDate(follow(f2fDate, before?.f2fDate, saved.f2fDate));
+    setSeededFrom(saved);
+    setReseedAll(false);
   }
 
   if (rating.isLoading) {
@@ -90,15 +123,23 @@ export default function ParUpdateStatusPanel({ cycle, employeeEmail }: { cycle: 
       {
         employeeEmail,
         parRatingId: parRatingData.parRatingId,
+        // Only what changed, so a field left as it was is never sent back over a newer value.
         payload: {
-          parEmployeeStatus: employeeStatus,
-          parLeadStatus: leadStatus,
-          parF2fStatus: f2fStatus,
-          ...(f2fStatus === "COMPLETED" && f2fDate ? { parF2fDate: f2fDate } : {}),
+          ...(employeeStatus !== parRatingData.parEmployeeStatus ? { parEmployeeStatus: employeeStatus } : {}),
+          ...(leadStatus !== parRatingData.parLeadStatus ? { parLeadStatus: leadStatus } : {}),
+          ...(f2fStatus !== parRatingData.parF2fStatus ? { parF2fStatus: f2fStatus } : {}),
+          ...(f2fStatus === "COMPLETED" &&
+          f2fDate &&
+          (f2fStatus !== parRatingData.parF2fStatus || f2fDate !== (parRatingData.parF2fDate ?? ""))
+            ? { parF2fDate: f2fDate }
+            : {}),
         },
       },
       {
-        onSuccess: () => showSuccess("Status updated"),
+        onSuccess: () => {
+          setReseedAll(true);
+          showSuccess("Status updated");
+        },
         onError: (err) => showError(describeError(err)),
       },
     );

@@ -31,15 +31,15 @@ export interface Lead360SummarySuggestion {
 }
 
 // The AI-suggested 360° summary of an employee, for their lead to start from.
-// The backend writes it the first time it's asked for and keeps it, writing a
-// new one only once more responses have come in, so the key carries the
-// response count. A POST, since asking may write one. Never retried, not even
-// when the panel mounts again after a failure: the backend tries once for each
-// number of responses, and tries a failed one again only when another response
-// comes in or a day has passed.
-// The cached rating takes what it was written from, so the panel can tell when
-// more responses have come in since; an answer for fewer responses than it
-// already holds (a slower, older request) leaves it alone.
+// The backend writes it once all the 360° feedback is in (after the 360°
+// deadline has passed everywhere) and keeps it, so it's written once; the key
+// carries the response count all the same. A POST, since asking may write one.
+// Not retried at once, not even when the panel mounts again after a failure:
+// the backend tries a failed one again only after an hour, so after a failure
+// it's asked for again an hour later, as the panel tells the lead.
+// How long after a failed suggestion it's asked for again: when the backend tries a failed one again.
+const SUGGESTION_RETRY_AFTER_MS = 60 * 60 * 1000;
+
 export function useLead360SummarySuggestion(
   parCycleId: number,
   employeeEmail: string,
@@ -48,7 +48,6 @@ export function useLead360SummarySuggestion(
 ) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
-  const qc = useQueryClient();
   return useQuery<Lead360SummarySuggestion, Error>({
     queryKey: ["par-lead-360-suggestion", parCycleId, employeeEmail, responseCount],
     enabled: enabled && isSignedIn,
@@ -61,17 +60,16 @@ export function useLead360SummarySuggestion(
         digiopsHeaders(),
       );
       if (!suggestion) throw new Error("The suggestion came back empty.");
-      qc.setQueryData<ParRating | null>(["par-rating", parCycleId, employeeEmail], (old) =>
-        old && suggestion.responseCount >= (old.parLead360SuggestionResponses ?? 0)
-          ? { ...old, parLead360SuggestionResponses: suggestion.responseCount }
-          : old,
-      );
       return suggestion;
     },
     retry: false,
     retryOnMount: false,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchInterval: (query) => (query.state.status === "error" ? SUGGESTION_RETRY_AFTER_MS : false),
+    // Also while the tab is hidden: coming back to it doesn't ask again (focus refetching is off), so a retry skipped
+    // then would wait another hour.
+    refetchIntervalInBackground: true,
   });
 }
 

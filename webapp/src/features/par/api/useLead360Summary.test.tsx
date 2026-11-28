@@ -17,7 +17,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import type { ParRating } from "./types";
 
 const authedPost = vi.fn<(url: string) => Promise<unknown>>();
@@ -50,11 +50,26 @@ beforeEach(() => {
 });
 
 describe("useLead360SummarySuggestion", () => {
-  it("reads the kept suggestion and notes on the rating what it was written from", async () => {
+  it("asks again an hour after a failure even while the tab is hidden", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      authedPost.mockRejectedValueOnce(new Error("HTTP 503"));
+      const { result } = renderHook(() => useLead360SummarySuggestion(2, "alex@example.com", 4, true), { wrapper });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      focusManager.setFocused(false);
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(authedPost).toHaveBeenCalledTimes(2);
+    } finally {
+      focusManager.setFocused(undefined);
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads the kept suggestion", async () => {
     const { result } = renderHook(() => useLead360SummarySuggestion(2, "alex@example.com", 4, true), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(authedPost).toHaveBeenCalledWith("/par-cycles/2/alex@example.com/suggestion");
-    expect(client.getQueryData<ParRating>(ratingKey)).toMatchObject({ parLead360SuggestionResponses: 4 });
   });
 
   it("asks only when it's wanted, and again only once more responses come in", async () => {
@@ -72,10 +87,19 @@ describe("useLead360SummarySuggestion", () => {
     await waitFor(() => expect(authedPost).toHaveBeenCalledTimes(2));
   });
 
-  it("doesn't retry after a failure: the backend decides when to try again", async () => {
-    authedPost.mockRejectedValue(new Error("HTTP 503"));
-    const { result } = renderHook(() => useLead360SummarySuggestion(2, "alex@example.com", 4, true), { wrapper });
-    await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(authedPost).toHaveBeenCalledTimes(1);
+  it("asks again an hour after a failure, not before: the backend tries a failed one again only then", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      authedPost.mockRejectedValueOnce(new Error("HTTP 503"));
+      const { result } = renderHook(() => useLead360SummarySuggestion(2, "alex@example.com", 4, true), { wrapper });
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      await vi.advanceTimersByTimeAsync(59 * 60 * 1000);
+      expect(authedPost).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(60 * 1000);
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(authedPost).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
