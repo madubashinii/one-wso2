@@ -20,5 +20,6 @@ export const workspacePaths = {
   approvals: `${WORKSPACE_PATH}/approvals`,
   approval: (requestId: string): string => `${WORKSPACE_PATH}/approvals/${encodeURIComponent(requestId)}`,
   queue: `${WORKSPACE_PATH}/requests`,
+  settings: `${WORKSPACE_PATH}/settings`,
   request: (requestId: string): string => `${WORKSPACE_PATH}/requests/${encodeURIComponent(requestId)}`,
 } as const;
